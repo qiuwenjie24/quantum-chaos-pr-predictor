@@ -1,0 +1,108 @@
+
+import numpy as np
+from scipy.fft import fft, ifft
+
+def kicked_rotor_pr(K, hbar, T=50, L=256):
+    x = np.linspace(0, 2*np.pi, L, endpoint=False)
+    p = np.fft.fftfreq(L, d=1/L) * 2 * np.pi
+    psi = np.exp(-((x - np.pi)**2) / (2 * 0.3**2))
+    psi /= np.linalg.norm(psi)
+
+    PRs = []
+    for _ in range(T):
+        psi = np.exp(-1j * K * np.cos(x) / hbar) * psi
+        psi_p = fft(psi)
+        psi_p = np.exp(-1j * (p**2) / (2 * hbar)) * psi_p
+        psi = ifft(psi_p)
+        prob = np.abs(fft(psi))**2
+        PR = (np.sum(prob)**2) / np.sum(prob**2)
+        PRs.append(PR.real)
+
+    return np.array(PRs)
+
+def generate_dataset(N=1000, T=50):
+    X, Y = [], []
+    for _ in range(N):
+        K = np.random.uniform(0.5, 10.0)
+        hbar = np.random.uniform(0.1, 2.0)
+        pr_seq = kicked_rotor_pr(K, hbar, T)
+        X.append([K, hbar])
+        Y.append(pr_seq)
+    return np.array(X), np.array(Y)
+
+
+
+# ======================================================================
+import torch
+from torch import nn
+from torch.utils.data import DataLoader, TensorDataset
+
+class PRPredictor(nn.Module):
+    def __init__(self, T):
+        super().__init__()
+        self.model = nn.Sequential(
+            nn.Linear(2, 64),
+            nn.ReLU(),
+            nn.Linear(64, 128),
+            nn.ReLU(),
+            nn.Linear(128, T)
+        )
+
+    def forward(self, x):
+        return self.model(x)
+
+# 数据准备
+X_np, Y_np = generate_dataset(N=1000, T=50)
+X_tensor = torch.tensor(X_np, dtype=torch.float32)
+Y_tensor = torch.tensor(Y_np, dtype=torch.float32)
+
+dataset = TensorDataset(X_tensor, Y_tensor)
+train_loader = DataLoader(dataset, batch_size=32, shuffle=True)
+
+# 模型初始化
+model = PRPredictor(T=50)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+loss_fn = nn.MSELoss()
+
+# 训练循环
+for epoch in range(10):
+    total_loss = 0
+    for xb, yb in train_loader:
+        pred = model(xb)
+        loss = loss_fn(pred, yb)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+    print(f"Epoch {epoch+1}: Loss = {total_loss/len(train_loader):.4f}")
+
+# 可视化示例
+import matplotlib.pyplot as plt
+
+with torch.no_grad():
+    test_K, test_hbar = 4.3, 0.7
+    test_x = torch.tensor([[test_K, test_hbar]], dtype=torch.float32)
+    pred_seq = model(test_x).numpy()[0]
+    true_seq = kicked_rotor_pr(test_K, test_hbar, T=50)
+
+plt.plot(pred_seq, label="Predicted PR")
+plt.plot(true_seq, label="True PR")
+plt.xlabel("Time")
+plt.ylabel("Participation Ratio")
+plt.legend()
+plt.title("QKR PR Prediction vs Ground Truth")
+plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+

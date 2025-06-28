@@ -1,0 +1,12 @@
+# requirements.txt
+
+# 核心科学计算库
+numpy
+scipy
+
+# 深度学习库
+torch
+
+# 可视化
+matplotlib
+
