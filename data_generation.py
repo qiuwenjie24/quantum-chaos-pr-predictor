@@ -1,10 +1,10 @@
 # data_generation.py
 import numpy as np
-from scipy.fft import fft, ifft
 
-def kicked_rotor_pr(K, hbar, T=50, L=256):
+# 根据公式计算 PR 序列 
+def kicked_rotor_pr(K, hbar, T=100, L=256):
     x = np.linspace(0, 2*np.pi, L, endpoint=False)
-    p = np.fft.fftfreq(L, d=1/L) * 2 * np.pi
+    p = np.fft.fftfreq(L, d=2*np.pi/L) * 2 * np.pi
     psi = np.exp(-((x - np.pi)**2) / (2 * 0.3**2))
     psi /= np.linalg.norm(psi)
 
@@ -20,7 +20,8 @@ def kicked_rotor_pr(K, hbar, T=50, L=256):
 
     return np.array(PRs)
 
-def generate_dataset(N=1000, T=50):
+# 基于物理模型生成 PR 数据 
+def generate_dataset(N=1000, T=100):
     X, Y = [], []
     for _ in range(N):
         K = np.random.uniform(0.5, 10.0)
